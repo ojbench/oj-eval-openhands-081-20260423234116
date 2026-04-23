@@ -1,4 +1,5 @@
 
+
 #include <iostream>
 #include <vector>
 #include <queue>
@@ -7,68 +8,62 @@
 
 using namespace std;
 
-const int INF = 1e9;
+const int MAXN = 3005;
 
 struct Edge {
-    int to, cap, flow, rev;
+    int to, rev;
+    int cap;
 };
 
-vector<vector<Edge>> adj;
-int level[3005];
-int ptr[3005];
+vector<Edge> adj[MAXN];
+int n, m;
 
-void add_edge(int from, int to, int cap) {
-    adj[from].push_back({to, cap, 0, (int)adj[to].size()});
-    adj[to].push_back({from, cap, 0, (int)adj[from].size() - 1});
+void add_edge(int u, int v) {
+    adj[u].push_back({v, (int)adj[v].size(), 1});
+    adj[v].push_back({u, (int)adj[u].size() - 1, 1});
 }
 
-bool bfs(int s, int t, int n) {
-    memset(level, -1, sizeof(int) * (n + 1));
-    level[s] = 0;
-    queue<int> q;
-    q.push(s);
-    while (!q.empty()) {
-        int v = q.front();
-        q.pop();
-        for (auto& edge : adj[v]) {
-            if (edge.cap - edge.flow > 0 && level[edge.to] == -1) {
-                level[edge.to] = level[v] + 1;
-                q.push(edge.to);
+int parent_node[MAXN];
+int parent_edge[MAXN];
+int q[MAXN];
+
+int find_path(int s, int t) {
+    for(int i=1; i<=n; ++i) parent_node[i] = 0;
+    int head = 0, tail = 0;
+    q[tail++] = s;
+    parent_node[s] = -1;
+    while(head < tail){
+        int u = q[head++];
+        if(u == t) return 1;
+        for(int i=0; i<(int)adj[u].size(); ++i){
+            auto& e = adj[u][i];
+            if(e.cap > 0 && parent_node[e.to] == 0){
+                parent_node[e.to] = u;
+                parent_edge[e.to] = i;
+                q[tail++] = e.to;
             }
         }
     }
-    return level[t] != -1;
-}
-
-int dfs(int v, int t, int pushed) {
-    if (pushed == 0) return 0;
-    if (v == t) return pushed;
-    for (int& cid = ptr[v]; cid < adj[v].size(); ++cid) {
-        auto& edge = adj[v][cid];
-        int tr = edge.to;
-        if (level[v] + 1 != level[tr] || edge.cap - edge.flow == 0) continue;
-        int push = dfs(tr, t, min(pushed, edge.cap - edge.flow));
-        if (push == 0) continue;
-        edge.flow += push;
-        adj[tr][edge.rev].flow -= push;
-        return push;
-    }
-    level[v] = -1;
     return 0;
 }
 
-int dinic(int s, int t, int n) {
-    int flow = 0;
+int max_flow(int s, int t) {
     for (int i = 1; i <= n; ++i) {
-        for (auto& e : adj[i]) {
-            e.flow = 0;
-        }
+        for (auto& e : adj[i]) e.cap = 1;
     }
-    while (bfs(s, t, n)) {
-        memset(ptr, 0, sizeof(int) * (n + 1));
-        while (int pushed = dfs(s, t, INF)) {
-            flow += pushed;
+    int flow = 0;
+    while(find_path(s, t)){
+        flow++;
+        int curr = t;
+        while(curr != s){
+            int prev = parent_node[curr];
+            int idx = parent_edge[curr];
+            adj[prev][idx].cap--;
+            int rev_idx = adj[prev][idx].rev;
+            adj[curr][rev_idx].cap++;
+            curr = prev;
         }
+        if(flow == 3) break;
     }
     return flow;
 }
@@ -78,12 +73,13 @@ struct GHEdge {
 };
 
 struct DSU {
-    vector<int> parent;
-    vector<int> sz;
+    int parent[MAXN];
+    int sz[MAXN];
     DSU(int n) {
-        parent.resize(n + 1);
-        sz.resize(n + 1, 1);
-        for (int i = 1; i <= n; ++i) parent[i] = i;
+        for (int i = 1; i <= n; ++i) {
+            parent[i] = i;
+            sz[i] = 1;
+        }
     }
     int find(int i) {
         if (parent[i] == i) return i;
@@ -101,37 +97,38 @@ struct DSU {
 };
 
 int main() {
-    int n, m;
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
     if (!(cin >> n >> m)) return 0;
-    adj.resize(n + 1);
     for (int i = 0; i < m; ++i) {
         int u, v;
         cin >> u >> v;
-        add_edge(u, v, 1);
+        add_edge(u, v);
     }
 
     vector<int> p(n + 1, 1);
     vector<GHEdge> gh_edges;
     for (int i = 2; i <= n; ++i) {
         int s = i, t = p[i];
-        int flow = dinic(s, t, n);
+        int flow = max_flow(s, t);
         gh_edges.push_back({s, t, flow});
-        vector<bool> in_s(n + 1, false);
-        queue<int> q;
-        q.push(s);
-        in_s[s] = true;
-        while (!q.empty()) {
-            int v = q.front();
-            q.pop();
-            for (auto& edge : adj[v]) {
-                if (edge.cap - edge.flow > 0 && !in_s[edge.to]) {
-                    in_s[edge.to] = true;
-                    q.push(edge.to);
+        
+        for(int k=1; k<=n; ++k) parent_node[k] = 0;
+        int head = 0, tail = 0;
+        q[tail++] = s;
+        parent_node[s] = -1;
+        while(head < tail){
+            int u = q[head++];
+            for(auto& e : adj[u]){
+                if(e.cap > 0 && parent_node[e.to] == 0){
+                    parent_node[e.to] = u;
+                    q[tail++] = e.to;
                 }
             }
         }
+
         for (int j = i + 1; j <= n; ++j) {
-            if (p[j] == t && in_s[j]) {
+            if (p[j] == t && parent_node[j] != 0) {
                 p[j] = i;
             }
         }
@@ -152,3 +149,4 @@ int main() {
 
     return 0;
 }
+
