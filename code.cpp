@@ -3,6 +3,7 @@
 #include <vector>
 #include <queue>
 #include <algorithm>
+#include <cstring>
 
 using namespace std;
 
@@ -13,16 +14,16 @@ struct Edge {
 };
 
 vector<vector<Edge>> adj;
-vector<int> level;
-vector<int> ptr;
+int level[3005];
+int ptr[3005];
 
 void add_edge(int from, int to, int cap) {
     adj[from].push_back({to, cap, 0, (int)adj[to].size()});
     adj[to].push_back({from, cap, 0, (int)adj[from].size() - 1});
 }
 
-bool bfs(int s, int t) {
-    fill(level.begin(), level.end(), -1);
+bool bfs(int s, int t, int n) {
+    memset(level, -1, sizeof(int) * (n + 1));
     level[s] = 0;
     queue<int> q;
     q.push(s);
@@ -52,18 +53,19 @@ int dfs(int v, int t, int pushed) {
         adj[tr][edge.rev].flow -= push;
         return push;
     }
+    level[v] = -1;
     return 0;
 }
 
-int dinic(int s, int t) {
+int dinic(int s, int t, int n) {
     int flow = 0;
-    for (auto& v : adj) {
-        for (auto& e : v) {
+    for (int i = 1; i <= n; ++i) {
+        for (auto& e : adj[i]) {
             e.flow = 0;
         }
     }
-    while (bfs(s, t)) {
-        fill(ptr.begin(), ptr.end(), 0);
+    while (bfs(s, t, n)) {
+        memset(ptr, 0, sizeof(int) * (n + 1));
         while (int pushed = dfs(s, t, INF)) {
             flow += pushed;
         }
@@ -102,8 +104,6 @@ int main() {
     int n, m;
     if (!(cin >> n >> m)) return 0;
     adj.resize(n + 1);
-    level.resize(n + 1);
-    ptr.resize(n + 1);
     for (int i = 0; i < m; ++i) {
         int u, v;
         cin >> u >> v;
@@ -114,7 +114,7 @@ int main() {
     vector<GHEdge> gh_edges;
     for (int i = 2; i <= n; ++i) {
         int s = i, t = p[i];
-        int flow = dinic(s, t);
+        int flow = dinic(s, t, n);
         gh_edges.push_back({s, t, flow});
         vector<bool> in_s(n + 1, false);
         queue<int> q;
